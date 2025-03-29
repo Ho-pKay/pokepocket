@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寶可夢卡片庫存管理系統 - Kay</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1E6BB8',
+                        secondary: '#3B82F6',
+                        accent: '#60A5FA',
+                        light: {
+                            primary: '#1E6BB8',
+                            secondary: '#EBF5FF',
+                            accent: '#DBEAFE',
+                            background: '#FFFFFF',
+                            text: '#1F2937'
+                        },
+                        dark: {
+                            primary: '#3B82F6',
+                            secondary: '#1E3A8A',
+                            accent: '#1E40AF',
+                            background: '#0F172A',
+                            text: '#F9FAFB'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .theme-light {
+            --bg-primary: #FFFFFF;
+            --bg-secondary: #EBF5FF;
+            --text-primary: #1F2937;
+            --text-secondary: #4B5563;
+            --border-color: #E5E7EB;
+            --accent-color: #1E6BB8;
+        }
+        .theme-dark {
+            --bg-primary: #0F172A;
+            --bg-secondary: #1E293B;
+            --text-primary: #F9FAFB;
+            --text-secondary: #E5E7EB;
+            --border-color: #374151;
+            --accent-color: #3B82F6;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--accent-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .card-hover-effect {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* 自訂滾動條樣式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="theme-light bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-200">
+    <!-- 頂部導航欄 -->
+    <nav class="bg-[var(--accent-color)] text-white shadow-md">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex flex-wrap justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl md:text-2xl font-bold">寶可夢卡片管理</h1>
+                    <p class="hidden md:block text-sm">由 Kay 設計</p>
+                </div>
+                
+                <!-- 主題切換器 -->
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <button id="theme-dropdown-btn" class="flex items-center space-x-1 bg-white/20 hover:bg-white/30 rounded-md px-3 py-1 transition">
+                            <span id="current-theme-text">自動主題</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="theme-dropdown" class="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 hidden animate-fade-in">
+                            <ul class="py-1">
+                                <li class="theme-option hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 cursor-pointer" data-theme="light">
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                        <span class="text-gray-800 dark:text-gray-200">淺色主題</span>
+                                    </div>
+                                </li>
+                                <li class="theme-option hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 cursor-pointer" data-theme="dark">
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                        </svg>
+                                        <span class="text-gray-800 dark:text-gray-200">深色主題</span>
+                                    </div>
+                                </li>
+                                <li class="theme-option hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-2 cursor-pointer" data-theme="auto">
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="text-gray-800 dark:text-gray-200">自動主題</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 選項卡導航 -->
+    <div class="bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
+        <div class="container mx-auto px-4">
+            <div class="flex overflow-x-auto py-2 space-x-4">
+                <button class="tab-btn px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap active" data-tab="home">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    首頁
+                </button>
+                <button class="tab-btn px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap" data-tab="inventory">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    庫存管理
+                </button>
+                <button class="tab-btn px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap" data-tab="stats">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    統計分析
+                </button>
+                <button class="tab-btn px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap" data-tab="search">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    搜尋篩選
+                </button>
+                <button class="tab-btn px-4 py-2 font-medium rounded-md transition-colors whitespace-nowrap" data-tab="settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    設置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主內容區域 -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- 首頁 -->
+        <div id="home" class="tab-content active animate-fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- 歡迎卡片 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect col-span-full md:col-span-2">
+                    <h2 class="text-2xl font-bold mb-4 text-[var(--accent-color)]">歡迎使用寶可夢卡片庫存管理系統</h2>
+                    <p class="text-[var(--text-secondary)] mb-4">這個系統可以幫助您追蹤、管理和分析您的寶可夢卡片收藏。使用左側的導航選項來開始使用不同功能。</p>
+                    <div class="flex flex-wrap gap-4 mt-4">
+                        <button id="go-to-inventory" class="bg-[var(--accent-color)] hover:bg-opacity-90 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            添加新卡片
+                        </button>
+                        <button id="go-to-stats" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            查看統計數據
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 庫存概況卡片 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">庫存概況</h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[var(--accent-color)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-[var(--text-secondary)]">總卡片數量</span>
+                            <span id="total-cards" class="font-semibold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[var(--text-secondary)]">不同卡片種類</span>
+                            <span id="unique-cards" class="font-semibold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-[var(--text-secondary)]">卡片系列數</span>
+                            <span id="series-count" class="font-semibold">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 總價值卡片 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">收藏總價值</h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="text-center">
+                        <div id="total-value-home" class="text-3xl font-bold text-[var(--accent-color)]">$0.00</div>
+                        <p class="text-[var(--text-secondary)] mt-2">您收藏的全部卡片價值</p>
+                    </div>
+                </div>
+
+                <!-- 稀有度分布卡片 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">稀有度分布</h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                        </svg>
+                    </div>
+                    <div class="h-48">
+                        <canvas id="rarity-chart-home"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最有價值卡片區域 -->
+            <div class="mb-8">
+                <h2 class="text-xl font-semibold mb-4 text-[var(--text-primary)]">最有價值的卡片</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-[var(--bg-primary)] rounded-lg overflow-hidden border border-[var(--border-color)]">
+                        <thead class="bg-[var(--bg-secondary)]">
+                            <tr>
+                                <th class="py-3 px-4 text-left">卡片名稱</th>
+                                <th class="py-3 px-4 text-left">系列</th>
+                                <th class="py-3 px-4 text-left">稀有度</th>
+                                <th class="py-3 px-4 text-left">數量</th>
+                                <th class="py-3 px-4 text-left">價格</th>
+                                <th class="py-3 px-4 text-left">總值</th>
+                            </tr>
+                        </thead>
+                        <tbody id="valuable-cards-list">
+                            <!-- 將通過JavaScript填充 -->
+                            <tr>
+                                <td colspan="6" class="py-4 text-center text-[var(--text-secondary)]">
+                                    沒有卡片數據，請添加卡片到您的收藏。
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 快捷功能卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-[var(--accent-color)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <h3 class="font-semibold mb-2">新增卡片</h3>
+                    <p class="text-sm text-[var(--text-secondary)] mb-3">添加新的寶可夢卡片到您的收藏</p>
+                    <button class="go-to-tab bg-[var(--accent-color)] hover:bg-opacity-90 text-white text-sm py-1 px-4 rounded-full transition-colors" data-tab="inventory">開始添加</button>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-[var(--accent-color)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <h3 class="font-semibold mb-2">搜尋卡片</h3>
+                    <p class="text-sm text-[var(--text-secondary)] mb-3">快速找到您收藏中的特定卡片</p>
+                    <button class="go-to-tab bg-[var(--accent-color)] hover:bg-opacity-90 text-white text-sm py-1 px-4 rounded-full transition-colors" data-tab="search">開始搜尋</button>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-[var(--accent-color)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <h3 class="font-semibold mb-2">統計分析</h3>
+                    <p class="text-sm text-[var(--text-secondary)] mb-3">深入分析您的卡片收藏數據</p>
+                    <button class="go-to-tab bg-[var(--accent-color)] hover:bg-opacity-90 text-white text-sm py-1 px-4 rounded-full transition-colors" data-tab="stats">查看統計</button>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)] card-hover-effect text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-[var(--accent-color)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <h3 class="font-semibold mb-2">導出數據</h3>
+                    <p class="text-sm text-[var(--text-secondary)] mb-3">將您的卡片數據導出為CSV格式</p>
+                    <button id="export-data-btn" class="bg-[var(--accent-color)] hover:bg-opacity-90 text-white text-sm py-1 px-4 rounded-full transition-colors">導出數據</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 庫存管理頁面 -->
+        <div id="inventory" class="tab-content animate-fade-in">
+            <!-- 新增卡片表單 -->
+            <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md mb-8 border border-[var(--border-color)]">
+                <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">新增卡片</h2>
+                <form id="pokemon-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="pokemon-name" class="block mb-1">卡片名稱</label>
+                            <input type="text" id="pokemon-name" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="pokemon-series" class="block mb-1">卡片系列</label>
+                            <input type="text" id="pokemon-series" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="pokemon-rarity" class="block mb-1">稀有度</label>
+                            <select id="pokemon-rarity" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                                <option value="普通">普通 (Common)</option>
+                                <option value="不常見">不常見 (Uncommon)</option>
+                                <option value="稀有">稀有 (Rare)</option>
+                                <option value="超稀有">超稀有 (Ultra Rare)</option>
+                                <option value="秘密稀有">秘密稀有 (Secret Rare)</option>
+                                <option value="限定">限定 (Limited)</option>
+                                <option value="促銷">促銷 (Promo)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="pokemon-quantity" class="block mb-1">數量</label>
+                            <input type="number" id="pokemon-quantity" min="1" value="1" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="pokemon-price" class="block mb-1">價格</label>
+                            <input type="number" id="pokemon-price" min="0" step="0.01" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="pokemon-condition" class="block mb-1">卡片狀態</label>
+                            <select id="pokemon-condition" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                                <option value="全新">全新 (Mint)</option>
+                                <option value="極佳">極佳 (Near Mint)</option>
+                                <option value="良好">良好 (Excellent)</option>
+                                <option value="普通">普通 (Good)</option>
+                                <option value="一般">一般 (Fair)</option>
+                                <option value="不良">不良 (Poor)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="pokemon-notes" class="block mb-1">備註</label>
+                        <textarea id="pokemon-notes" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="bg-[var(--accent-color)] hover:bg-opacity-90 text-white font-semibold py-2 px-6 rounded shadow-md transition-colors">新增卡片</button>
+                </form>
+            </div>
+            
+            <!-- 卡片列表 -->
+            <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)]">
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <h2 class="text-xl font-semibold text-[var(--accent-color)]">卡片庫存列表</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="sort-price-btn" class="bg-[var(--accent-color)]/80 hover:bg-[var(--accent-color)] text-white px-3 py-1 rounded text-sm transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                            </svg>
+                            價格排序
+                        </button>
+                        <button id="clear-all" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            清空所有
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-[var(--bg-primary)] rounded-lg overflow-hidden border border-[var(--border-color)]">
+                        <thead class="bg-[var(--bg-secondary)]">
+                            <tr>
+                                <th class="py-3 px-4 text-left">卡片名稱</th>
+                                <th class="py-3 px-4 text-left">系列</th>
+                                <th class="py-3 px-4 text-left">稀有度</th>
+                                <th class="py-3 px-4 text-left">數量</th>
+                                <th class="py-3 px-4 text-left">價格</th>
+                                <th class="py-3 px-4 text-left">總值</th>
+                                <th class="py-3 px-4 text-left">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pokemon-list">
+                            <!-- 卡片列表將通過JavaScript插入 -->
+                        </tbody>
+                        <tfoot class="bg-[var(--bg-secondary)]">
+                            <tr>
+                                <td class="py-3 px-4 font-bold" colspan="5">總計</td>
+                                <td id="total-value" class="py-3 px-4 font-bold">0</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div id="empty-message" class="text-center py-8 text-[var(--text-secondary)]">
+                    目前沒有卡片庫存記錄。請使用上方表單新增卡片。
+                </div>
+            </div>
+        </div>
+
+        <!-- 統計分析頁面 -->
+        <div id="stats" class="tab-content animate-fade-in">
+            <!-- 頂部統計卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-2">總卡片數</h3>
+                    <div class="flex justify-between items-center">
+                        <div class="text-3xl font-bold text-[var(--accent-color)]" id="stats-total-cards">0</div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-[var(--accent-color)]/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-2">總價值</h3>
+                    <div class="flex justify-between items-center">
+                        <div class="text-3xl font-bold text-green-500" id="stats-total-value">$0.00</div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-500/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-2">平均價格</h3>
+                    <div class="flex justify-between items-center">
+                        <div class="text-3xl font-bold text-blue-500" id="stats-avg-price">$0.00</div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blue-500/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-2">卡片類別</h3>
+                    <div class="flex justify-between items-center">
+                        <div class="text-3xl font-bold text-purple-500" id="stats-unique-series">0</div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-purple-500/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 圖表區域 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- 稀有度分布圖表 -->
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-4">稀有度分布</h3>
+                    <div class="h-64">
+                        <canvas id="rarity-chart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 價值分布圖表 -->
+                <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h3 class="text-lg font-semibold mb-4">系列價值分布</h3>
+                    <div class="h-64">
+                        <canvas id="series-value-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 卡片系列分析 -->
+            <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)] mb-8">
+                <h3 class="text-lg font-semibold mb-4">系列卡片分析</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-[var(--bg-primary)] rounded-lg overflow-hidden border border-[var(--border-color)]">
+                        <thead class="bg-[var(--bg-secondary)]">
+                            <tr>
+                                <th class="py-3 px-4 text-left">系列名稱</th>
+                                <th class="py-3 px-4 text-left">卡片數量</th>
+                                <th class="py-3 px-4 text-left">稀有卡片</th>
+                                <th class="py-3 px-4 text-left">總價值</th>
+                                <th class="py-3 px-4 text-left">平均價格</th>
+                            </tr>
+                        </thead>
+                        <tbody id="series-analysis">
+                            <!-- 系列分析將通過JavaScript插入 -->
+                            <tr>
+                                <td colspan="5" class="py-4 text-center text-[var(--text-secondary)]">
+                                    沒有卡片數據，請添加卡片到您的收藏。
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 價格區間分析 -->
+            <div class="bg-[var(--bg-secondary)] p-5 rounded-lg shadow-md border border-[var(--border-color)]">
+                <h3 class="text-lg font-semibold mb-4">價格區間分析</h3>
+                <div class="h-64">
+                    <canvas id="price-range-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 搜尋篩選頁面 -->
+        <div id="search" class="tab-content animate-fade-in">
+            <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md mb-8 border border-[var(--border-color)]">
+                <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">搜尋和篩選</h2>
+                <form id="search-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="search-name" class="block mb-1">卡片名稱</label>
+                            <input type="text" id="search-name" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                        </div>
+                        <div>
+                            <label for="search-series" class="block mb-1">卡片系列</label>
+                            <select id="search-series" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                                <option value="">所有系列</option>
+                                <!-- 系列選項將通過JavaScript填充 -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="search-rarity" class="block mb-1">稀有度</label>
+                            <select id="search-rarity" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                                <option value="">所有稀有度</option>
+                                <option value="普通">普通 (Common)</option>
+                                <option value="不常見">不常見 (Uncommon)</option>
+                                <option value="稀有">稀有 (Rare)</option>
+                                <option value="超稀有">超稀有 (Ultra Rare)</option>
+                                <option value="秘密稀有">秘密稀有 (Secret Rare)</option>
+                                <option value="限定">限定 (Limited)</option>
+                                <option value="促銷">促銷 (Promo)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="min-price" class="block mb-1">最低價格</label>
+                            <input type="number" id="min-price" min="0" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="0">
+                        </div>
+                        <div>
+                            <label for="max-price" class="block mb-1">最高價格</label>
+                            <input type="number" id="max-price" min="0" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="無上限">
+                        </div>
+                        <div>
+                            <label for="sort-by" class="block mb-1">排序方式</label>
+                            <select id="sort-by" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                                <option value="name-asc">名稱 (A-Z)</option>
+                                <option value="name-desc">名稱 (Z-A)</option>
+                                <option value="price-asc">價格 (低到高)</option>
+                                <option value="price-desc">價格 (高到低)</option>
+                                <option value="quantity-asc">數量 (少到多)</option>
+                                <option value="quantity-desc">數量 (多到少)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="bg-[var(--accent-color)] hover:bg-opacity-90 text-white font-semibold py-2 px-6 rounded shadow-md transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            搜尋
+                        </button>
+                        <button type="reset" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded shadow-md transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 搜尋結果 -->
+            <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)]">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-[var(--accent-color)]">搜尋結果</h2>
+                    <span id="search-count" class="text-[var(--text-secondary)]">找到 0 個結果</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-[var(--bg-primary)] rounded-lg overflow-hidden border border-[var(--border-color)]">
+                        <thead class="bg-[var(--bg-secondary)]">
+                            <tr>
+                                <th class="py-3 px-4 text-left">卡片名稱</th>
+                                <th class="py-3 px-4 text-left">系列</th>
+                                <th class="py-3 px-4 text-left">稀有度</th>
+                                <th class="py-3 px-4 text-left">數量</th>
+                                <th class="py-3 px-4 text-left">價格</th>
+                                <th class="py-3 px-4 text-left">總值</th>
+                                <th class="py-3 px-4 text-left">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="search-results">
+                            <!-- 搜尋結果將通過JavaScript插入 -->
+                            <tr>
+                                <td colspan="7" class="py-4 text-center text-[var(--text-secondary)]">
+                                    請使用上方的搜尋選項來查找卡片。
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-results-message" class="text-center py-8 text-[var(--text-secondary)] hidden">
+                    沒有找到符合條件的卡片。請嘗試使用不同的搜尋條件。
+                </div>
+            </div>
+        </div>
+
+        <!-- 設置頁面 -->
+        <div id="settings" class="tab-content animate-fade-in">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- 主題設置 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">主題設置</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block mb-2 font-medium">選擇主題</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-2 rounded hover:bg-[var(--bg-primary)]/50 cursor-pointer">
+                                    <input type="radio" name="theme" value="light" class="h-4 w-4 accent-[var(--accent-color)]">
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                        <span>淺色主題</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-2 rounded hover:bg-[var(--bg-primary)]/50 cursor-pointer">
+                                    <input type="radio" name="theme" value="dark" class="h-4 w-4 accent-[var(--accent-color)]">
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                        </svg>
+                                        <span>深色主題</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-2 rounded hover:bg-[var(--bg-primary)]/50 cursor-pointer">
+                                    <input type="radio" name="theme" value="auto" class="h-4 w-4 accent-[var(--accent-color)]" checked>
+                                    <div class="flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>跟隨系統</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 數據管理 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">數據管理</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block mb-2 font-medium">導出數據</label>
+                            <button id="export-csv" class="bg-[var(--accent-color)] hover:bg-opacity-90 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                </svg>
+                                導出為CSV
+                            </button>
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium">導入數據</label>
+                            <label for="import-file" class="flex items-center justify-center bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                </svg>
+                                導入CSV文件
+                            </label>
+                            <input type="file" id="import-file" accept=".csv" class="hidden">
+                        </div>
+                        <div>
+                            <label class="block mb-2 font-medium">清空數據</label>
+                            <button id="clear-all-data" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                清空所有數據
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 關於 -->
+                <div class="bg-[var(--bg-secondary)] p-6 rounded-lg shadow-md border border-[var(--border-color)]">
+                    <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">關於</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <h3 class="font-medium mb-2">寶可夢卡片庫存管理系統</h3>
+                            <p class="text-[var(--text-secondary)] mb-2">版本 1.2.0</p>
+                            <p class="text-[var(--text-secondary)] mb-4">由 Kay 設計</p>
+                            <p class="text-[var(--text-secondary)]">這個應用程序可以幫助您追蹤、管理和分析您的寶可夢卡片收藏。所有數據都存儲在本地瀏覽器中，確保您的收藏資料安全私密。</p>
+                        </div>
+                        <div class="pt-4 border-t border-[var(--border-color)]">
+                            <h3 class="font-medium mb-2">功能</h3>
+                            <ul class="list-disc list-inside text-[var(--text-secondary)] space-y-1">
+                                <li>卡片庫存追蹤</li>
+                                <li>詳細數據統計分析</li>
+                                <li>卡片搜尋和篩選</li>
+                                <li>數據導入與導出</li>
+                                <li>多主題界面</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯卡片彈窗 -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-lg max-w-lg w-full border border-[var(--border-color)]">
+            <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">編輯卡片</h2>
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-id">
+                <div>
+                    <label for="edit-name" class="block mb-1">卡片名稱</label>
+                    <input type="text" id="edit-name" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                </div>
+                <div>
+                    <label for="edit-series" class="block mb-1">卡片系列</label>
+                    <input type="text" id="edit-series" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                </div>
+                <div>
+                    <label for="edit-rarity" class="block mb-1">稀有度</label>
+                    <select id="edit-rarity" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                        <option value="普通">普通 (Common)</option>
+                        <option value="不常見">不常見 (Uncommon)</option>
+                        <option value="稀有">稀有 (Rare)</option>
+                        <option value="超稀有">超稀有 (Ultra Rare)</option>
+                        <option value="秘密稀有">秘密稀有 (Secret Rare)</option>
+                        <option value="限定">限定 (Limited)</option>
+                        <option value="促銷">促銷 (Promo)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-quantity" class="block mb-1">數量</label>
+                    <input type="number" id="edit-quantity" min="1" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                </div>
+                <div>
+                    <label for="edit-price" class="block mb-1">價格</label>
+                    <input type="number" id="edit-price" min="0" step="0.01" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" required>
+                </div>
+                <div>
+                    <label for="edit-condition" class="block mb-1">卡片狀態</label>
+                    <select id="edit-condition" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none">
+                        <option value="全新">全新 (Mint)</option>
+                        <option value="極佳">極佳 (Near Mint)</option>
+                        <option value="良好">良好 (Excellent)</option>
+                        <option value="普通">普通 (Good)</option>
+                        <option value="一般">一般 (Fair)</option>
+                        <option value="不良">不良 (Poor)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-notes" class="block mb-1">備註</label>
+                    <textarea id="edit-notes" class="w-full px-4 py-2 rounded border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-base focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" rows="2"></textarea>
+                </div>
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-[var(--accent-color)] hover:bg-opacity-90 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">更新</button>
+                    <button type="button" id="cancel-edit" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 刪除確認彈窗 -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-lg max-w-md w-full border border-[var(--border-color)]">
+            <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">確認刪除</h2>
+            <p class="mb-6 text-[var(--text-primary)]">確定要刪除這張卡片嗎？此操作無法撤銷。</p>
+            <input type="hidden" id="delete-id">
+            <div class="flex space-x-3">
+                <button id="confirm-delete" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">刪除</button>
+                <button id="cancel-delete" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 清空確認彈窗 -->
+    <div id="clear-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-lg max-w-md w-full border border-[var(--border-color)]">
+            <h2 class="text-xl font-semibold mb-4 text-[var(--accent-color)]">確認清空</h2>
+            <p class="mb-6 text-[var(--text-primary)]">確定要清空所有卡片嗎？此操作無法撤銷。</p>
+            <div class="flex space-x-3">
+                <button id="confirm-clear" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">清空</button>
+                <button id="cancel-clear" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded shadow-md transition-colors">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化數據
+        let pokemonCards = [];
+        let currentTheme = 'auto';
+        let charts = {};
+
+        // 主題處理
+        function setTheme(theme) {
+            const body = document.body;
+            currentTheme = theme;
+            
+            // 保存主題設置到localStorage
+            localStorage.setItem('pokemonTheme', theme);
+            
+            if (theme === 'auto') {
+                // 自動模式，根據系統設置
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    body.classList.remove('theme-light');
+                    body.classList.add('theme-dark');
+                } else {
+                    body.classList.remove('theme-dark');
+                    body.classList.add('theme-light');
+                }
+                document.getElementById('current-theme-text').textContent = '自動主題';
+            } else if (theme === 'dark') {
+                body.classList.remove('theme-light');
+                body.classList.add('theme-dark');
+                document.getElementById('current-theme-text').textContent = '深色主題';
+            } else {
+                body.classList.remove('theme-dark');
+                body.classList.add('theme-light');
+                document.getElementById('current-theme-text').textContent = '淺色主題';
+            }
+            
+            // 更新單選按鈕的選中状态
+            document.querySelectorAll('input[name="theme"]').forEach(input => {
+                input.checked = input.value === theme;
+            });
+            
+            // 重新渲染圖表
+            updateCharts();
+        }
+
+        // 監聽系統主題變化
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (currentTheme === 'auto') {
+                if (event.matches) {
+                    document.body.classList.remove('theme-light');
+                    document.body.classList.add('theme-dark');
+                } else {
+                    document.body.classList.remove('theme-dark');
+                    document.body.classList.add('theme-light');
+                }
+                
+                // 重新渲染圖表
+                updateCharts();
+            }
+        });
+
+        // 從localStorage加載主題設置
+        function loadThemeSettings() {
+            const savedTheme = localStorage.getItem('pokemonTheme') || 'auto';
+            setTheme(savedTheme);
+        }
+
+        // 從localStorage加載數據
+        function loadFromLocalStorage() {
+            const savedCards = localStorage.getItem('pokemonCards');
+            if (savedCards) {
+                pokemonCards = JSON.parse(savedCards);
+                renderPokemonList();
+                updateHomeStats();
+                updateStatistics();
+                updateSearchFilters();
+            }
+        }
+        
+        // 保存數據到localStorage
+        function saveToLocalStorage() {
+            localStorage.setItem('pokemonCards', JSON.stringify(pokemonCards));
+        }
+        
+        // 渲染稀有度標籤
+        function getRarityBadge(rarity) {
+            let rarityClass = '';
+            switch(rarity) {
+                case '普通': rarityClass = 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200'; break;
+                case '不常見': rarityClass = 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200'; break;
+                case '稀有': rarityClass = 'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200'; break;
+                case '超稀有': rarityClass = 'bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200'; break;
+                case '秘密稀有': rarityClass = 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200'; break;
+                case '限定': rarityClass = 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'; break;
+                case '促銷': rarityClass = 'bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200'; break;
+                default: rarityClass = 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200';
+            }
+            
+            return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${rarityClass}">${rarity}</span>`;
+        }
+        
+        // 渲染卡片列表
+        function renderPokemonList() {
+            const pokemonList = document.getElementById('pokemon-list');
+            const emptyMessage = document.getElementById('empty-message');
+            
+            // 清空列表
+            pokemonList.innerHTML = '';
+            
+            // 檢查是否有卡片
+            if (pokemonCards.length === 0) {
+                emptyMessage.classList.remove('hidden');
+                document.getElementById('total-value').textContent = "$0.00";
+                return;
+            }
+            
+            emptyMessage.classList.add('hidden');
+            
+            // 計算總值
+            let totalValue = 0;
+            
+            // 添加卡片到列表
+            pokemonCards.forEach((card, index) => {
+                const tr = document.createElement('tr');
+                const cardTotal = card.quantity * card.price;
+                totalValue += cardTotal;
+                
+                // 如果舊數據沒有系列或稀有度資訊，提供預設值
+                const series = card.series || '-';
+                const rarity = card.rarity || '普通';
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.name}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${series}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">
+                        ${getRarityBadge(rarity)}
+                    </td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.quantity}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${card.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${cardTotal.toFixed(2)}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">
+                        <button class="edit-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded mr-2 text-sm transition-colors" data-index="${index}">編輯</button>
+                        <button class="delete-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors" data-index="${index}">刪除</button>
+                    </td>
+                `;
+                
+                pokemonList.appendChild(tr);
+            });
+            
+            // 更新總值
+            document.getElementById('total-value').textContent = `$${totalValue.toFixed(2)}`;
+            
+            // 添加事件監聽
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', openEditModal);
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', openDeleteModal);
+            });
+        }
+        
+        // 新增卡片
+        function addPokemonCard(e) {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('pokemon-name');
+            const seriesInput = document.getElementById('pokemon-series');
+            const rarityInput = document.getElementById('pokemon-rarity');
+            const quantityInput = document.getElementById('pokemon-quantity');
+            const priceInput = document.getElementById('pokemon-price');
+            const conditionInput = document.getElementById('pokemon-condition');
+            const notesInput = document.getElementById('pokemon-notes');
+            
+            const name = nameInput.value.trim();
+            const series = seriesInput.value.trim();
+            const rarity = rarityInput.value;
+            const quantity = parseInt(quantityInput.value);
+            const price = parseFloat(priceInput.value);
+            const condition = conditionInput.value;
+            const notes = notesInput.value.trim();
+            
+            // 驗證輸入
+            if (!name || !series || !rarity || isNaN(quantity) || quantity < 1 || isNaN(price) || price < 0) {
+                return;
+            }
+            
+            // 新增卡片
+            pokemonCards.push({
+                name,
+                series,
+                rarity,
+                quantity,
+                price,
+                condition,
+                notes,
+                addedDate: new Date().toISOString()
+            });
+            
+            // 保存並渲染
+            saveToLocalStorage();
+            renderPokemonList();
+            updateHomeStats();
+            updateStatistics();
+            updateSearchFilters();
+            
+            // 重置表單
+            nameInput.value = '';
+            seriesInput.value = '';
+            rarityInput.value = '普通';
+            quantityInput.value = '1';
+            priceInput.value = '';
+            conditionInput.value = '全新';
+            notesInput.value = '';
+            nameInput.focus();
+        }
+        
+        // 打開編輯彈窗
+        function openEditModal(e) {
+            const index = e.target.dataset.index;
+            const card = pokemonCards[index];
+            
+            document.getElementById('edit-id').value = index;
+            document.getElementById('edit-name').value = card.name;
+            document.getElementById('edit-series').value = card.series || '';
+            document.getElementById('edit-rarity').value = card.rarity || '普通';
+            document.getElementById('edit-quantity').value = card.quantity;
+            document.getElementById('edit-price').value = card.price;
+            document.getElementById('edit-condition').value = card.condition || '全新';
+            document.getElementById('edit-notes').value = card.notes || '';
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+        
+        // 關閉編輯彈窗
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+        
+        // 更新卡片
+        function updateCard(e) {
+            e.preventDefault();
+            
+            const index = document.getElementById('edit-id').value;
+            const name = document.getElementById('edit-name').value.trim();
+            const series = document.getElementById('edit-series').value.trim();
+            const rarity = document.getElementById('edit-rarity').value;
+            const quantity = parseInt(document.getElementById('edit-quantity').value);
+            const price = parseFloat(document.getElementById('edit-price').value);
+            const condition = document.getElementById('edit-condition').value;
+            const notes = document.getElementById('edit-notes').value.trim();
+            
+            // 驗證輸入
+            if (!name || !series || !rarity || isNaN(quantity) || quantity < 1 || isNaN(price) || price < 0) {
+                return;
+            }
+            
+            // 保留原有的添加日期
+            const addedDate = pokemonCards[index].addedDate || new Date().toISOString();
+            
+            // 更新卡片
+            pokemonCards[index] = {
+                name,
+                series,
+                rarity,
+                quantity,
+                price,
+                condition,
+                notes,
+                addedDate,
+                updatedDate: new Date().toISOString()
+            };
+            
+            // 保存並渲染
+            saveToLocalStorage();
+            renderPokemonList();
+            updateHomeStats();
+            updateStatistics();
+            
+            // 如果搜尋頁面是活躍的，也更新搜尋結果
+            if (document.getElementById('search').classList.contains('active')) {
+                searchCards();
+            }
+            
+            // 關閉彈窗
+            closeEditModal();
+        }
+        
+        // 打開刪除確認彈窗
+        function openDeleteModal(e) {
+            const index = e.target.dataset.index;
+            document.getElementById('delete-id').value = index;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+        
+        // 關閉刪除確認彈窗
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+        }
+        
+        // 確認刪除卡片
+        function confirmDelete() {
+            const index = document.getElementById('delete-id').value;
+            
+            // 刪除卡片
+            pokemonCards.splice(index, 1);
+            
+            // 保存並渲染
+            saveToLocalStorage();
+            renderPokemonList();
+            updateHomeStats();
+            updateStatistics();
+            updateSearchFilters();
+            
+            // 關閉彈窗
+            closeDeleteModal();
+        }
+        
+        // 打開清空確認彈窗
+        function openClearModal() {
+            if (pokemonCards.length === 0) {
+                return;
+            }
+            document.getElementById('clear-modal').classList.remove('hidden');
+        }
+        
+        // 關閉清空確認彈窗
+        function closeClearModal() {
+            document.getElementById('clear-modal').classList.add('hidden');
+        }
+        
+        // 確認清空所有卡片
+        function confirmClear() {
+            pokemonCards = [];
+            
+            // 保存並渲染
+            saveToLocalStorage();
+            renderPokemonList();
+            updateHomeStats();
+            updateStatistics();
+            updateSearchFilters();
+            
+            // 關閉彈窗
+            closeClearModal();
+        }
+
+        // 切換選項卡
+        function switchTab(tabId) {
+            // 隱藏所有標籤內容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 取消所有標籤按鈕的活躍狀態
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-[var(--accent-color)]', 'text-white');
+            });
+            
+            // 顯示選中的標籤內容
+            const selectedTab = document.getElementById(tabId);
+            selectedTab.classList.add('active');
+            
+            // 設置選中標籤按鈕的活躍狀態
+            const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-[var(--accent-color)]', 'text-white');
+            }
+            
+            // 如果切換到統計頁面，更新圖表
+            if (tabId === 'stats') {
+                updateCharts();
+            }
+            
+            // 如果切換到搜尋頁面，更新搜尋過濾器
+            if (tabId === 'search') {
+                updateSearchFilters();
+            }
+        }
+
+        // 更新首頁統計數據
+        function updateHomeStats() {
+            if (pokemonCards.length === 0) {
+                document.getElementById('total-cards').textContent = '0';
+                document.getElementById('unique-cards').textContent = '0';
+                document.getElementById('series-count').textContent = '0';
+                document.getElementById('total-value-home').textContent = '$0.00';
+                document.getElementById('valuable-cards-list').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-4 text-center text-[var(--text-secondary)]">
+                            沒有卡片數據，請添加卡片到您的收藏。
+                        </td>
+                    </tr>
+                `;
+                
+                // 更新首頁的稀有度圖表
+                updateHomeRarityChart();
+                return;
+            }
+            
+            // 計算總卡片數
+            const totalCards = pokemonCards.reduce((sum, card) => sum + card.quantity, 0);
+            document.getElementById('total-cards').textContent = totalCards;
+            
+            // 卡片種類數
+            document.getElementById('unique-cards').textContent = pokemonCards.length;
+            
+            // 系列數
+            const uniqueSeries = new Set(pokemonCards.map(card => card.series)).size;
+            document.getElementById('series-count').textContent = uniqueSeries;
+            
+            // 總價值
+            const totalValue = pokemonCards.reduce((sum, card) => sum + (card.price * card.quantity), 0);
+            document.getElementById('total-value-home').textContent = `$${totalValue.toFixed(2)}`;
+            
+            // 更新首頁的稀有度圖表
+            updateHomeRarityChart();
+            
+            // 顯示最有價值的卡片（按總值排序）
+            const valuableCards = [...pokemonCards]
+                .sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))
+                .slice(0, 5);
+                
+            const valuableCardsList = document.getElementById('valuable-cards-list');
+            valuableCardsList.innerHTML = '';
+            
+            valuableCards.forEach(card => {
+                const tr = document.createElement('tr');
+                const cardTotal = card.quantity * card.price;
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.name}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.series || '-'}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">
+                        ${getRarityBadge(card.rarity || '普通')}
+                    </td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.quantity}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${card.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${cardTotal.toFixed(2)}</td>
+                `;
+                
+                valuableCardsList.appendChild(tr);
+            });
+        }
+
+        // 更新首頁稀有度圖表
+        function updateHomeRarityChart() {
+            const ctx = document.getElementById('rarity-chart-home').getContext('2d');
+            
+            // 如果已有圖表，先銷毀
+            if (charts.homeRarityChart) {
+                charts.homeRarityChart.destroy();
+            }
+            
+            // 收集稀有度數據
+            const rarityCount = {};
+            pokemonCards.forEach(card => {
+                const rarity = card.rarity || '普通';
+                rarityCount[rarity] = (rarityCount[rarity] || 0) + card.quantity;
+            });
+            
+            // 定義稀有度顏色
+            const rarityColors = {
+                '普通': '#9CA3AF',
+                '不常見': '#34D399',
+                '稀有': '#3B82F6',
+                '超稀有': '#8B5CF6',
+                '秘密稀有': '#F59E0B',
+                '限定': '#EF4444',
+                '促銷': '#F97316'
+            };
+            
+            // 如果沒有數據，顯示空圖表
+            if (Object.keys(rarityCount).length === 0) {
+                charts.homeRarityChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['沒有數據'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#D1D5DB']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            
+            // 創建圖表數據
+            const labels = Object.keys(rarityCount);
+            const data = labels.map(label => rarityCount[label]);
+            const backgroundColor = labels.map(label => rarityColors[label] || '#9CA3AF');
+            
+            // 創建圖表
+            charts.homeRarityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColor
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新統計分析頁面
+        function updateStatistics() {
+            if (pokemonCards.length === 0) {
+                document.getElementById('stats-total-cards').textContent = '0';
+                document.getElementById('stats-total-value').textContent = '$0.00';
+                document.getElementById('stats-avg-price').textContent = '$0.00';
+                document.getElementById('stats-unique-series').textContent = '0';
+                document.getElementById('series-analysis').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-[var(--text-secondary)]">
+                            沒有卡片數據，請添加卡片到您的收藏。
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // 總卡片數
+            const totalCards = pokemonCards.reduce((sum, card) => sum + card.quantity, 0);
+            document.getElementById('stats-total-cards').textContent = totalCards;
+            
+            // 總價值
+            const totalValue = pokemonCards.reduce((sum, card) => sum + (card.price * card.quantity), 0);
+            document.getElementById('stats-total-value').textContent = `$${totalValue.toFixed(2)}`;
+            
+            // 平均價格
+            const avgPrice = totalValue / totalCards;
+            document.getElementById('stats-avg-price').textContent = `$${avgPrice.toFixed(2)}`;
+            
+            // 系列數
+            const uniqueSeries = [...new Set(pokemonCards.map(card => card.series))];
+            document.getElementById('stats-unique-series').textContent = uniqueSeries.length;
+            
+            // 系列分析
+            const seriesAnalysis = {};
+            pokemonCards.forEach(card => {
+                const series = card.series || '未分類';
+                if (!seriesAnalysis[series]) {
+                    seriesAnalysis[series] = {
+                        cardCount: 0,
+                        rareCardCount: 0,
+                        totalValue: 0
+                    };
+                }
+                
+                seriesAnalysis[series].cardCount += card.quantity;
+                seriesAnalysis[series].totalValue += card.price * card.quantity;
+                
+                // 檢查稀有卡片 (稀有、超稀有、秘密稀有、限定)
+                const rarity = card.rarity || '普通';
+                if (['稀有', '超稀有', '秘密稀有', '限定'].includes(rarity)) {
+                    seriesAnalysis[series].rareCardCount += card.quantity;
+                }
+            });
+            
+            // 顯示系列分析
+            const seriesAnalysisTable = document.getElementById('series-analysis');
+            seriesAnalysisTable.innerHTML = '';
+            
+            Object.entries(seriesAnalysis)
+                .sort((a, b) => b[1].totalValue - a[1].totalValue)
+                .forEach(([series, data]) => {
+                    const avgPrice = data.totalValue / data.cardCount;
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 border-b border-[var(--border-color)]">${series}</td>
+                        <td class="py-3 px-4 border-b border-[var(--border-color)]">${data.cardCount}</td>
+                        <td class="py-3 px-4 border-b border-[var(--border-color)]">${data.rareCardCount}</td>
+                        <td class="py-3 px-4 border-b border-[var(--border-color)]">$${data.totalValue.toFixed(2)}</td>
+                        <td class="py-3 px-4 border-b border-[var(--border-color)]">$${avgPrice.toFixed(2)}</td>
+                    `;
+                    
+                    seriesAnalysisTable.appendChild(tr);
+                });
+        }
+
+        // 更新圖表
+        function updateCharts() {
+            updateRarityChart();
+            updateSeriesValueChart();
+            updatePriceRangeChart();
+        }
+
+        // 更新稀有度圖表
+        function updateRarityChart() {
+            const ctx = document.getElementById('rarity-chart').getContext('2d');
+            
+            // 如果已有圖表，先銷毀
+            if (charts.rarityChart) {
+                charts.rarityChart.destroy();
+            }
+            
+            // 收集稀有度數據
+            const rarityCount = {};
+            pokemonCards.forEach(card => {
+                const rarity = card.rarity || '普通';
+                rarityCount[rarity] = (rarityCount[rarity] || 0) + card.quantity;
+            });
+            
+            // 定義稀有度顏色
+            const rarityColors = {
+                '普通': '#9CA3AF',
+                '不常見': '#34D399',
+                '稀有': '#3B82F6',
+                '超稀有': '#8B5CF6',
+                '秘密稀有': '#F59E0B',
+                '限定': '#EF4444',
+                '促銷': '#F97316'
+            };
+            
+            // 如果沒有數據，顯示空圖表
+            if (Object.keys(rarityCount).length === 0) {
+                charts.rarityChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['沒有數據'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#D1D5DB']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            
+            // 創建圖表數據
+            const labels = Object.keys(rarityCount);
+            const data = labels.map(label => rarityCount[label]);
+            const backgroundColor = labels.map(label => rarityColors[label] || '#9CA3AF');
+            
+            // 創建圖表
+            charts.rarityChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColor
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary'),
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新系列價值圖表
+        function updateSeriesValueChart() {
+            const ctx = document.getElementById('series-value-chart').getContext('2d');
+            
+            // 如果已有圖表，先銷毀
+            if (charts.seriesValueChart) {
+                charts.seriesValueChart.destroy();
+            }
+            
+            // 收集系列價值數據
+            const seriesValue = {};
+            pokemonCards.forEach(card => {
+                const series = card.series || '未分類';
+                seriesValue[series] = (seriesValue[series] || 0) + (card.price * card.quantity);
+            });
+            
+            // 如果沒有數據，顯示空圖表
+            if (Object.keys(seriesValue).length === 0) {
+                charts.seriesValueChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['沒有數據'],
+                        datasets: [{
+                            data: [0],
+                            backgroundColor: ['#D1D5DB']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                                }
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            
+            // 排序和限制數據 (最多顯示10個)
+            const sortedSeries = Object.entries(seriesValue)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            // 創建圖表數據
+            const labels = sortedSeries.map(item => item[0]);
+            const data = sortedSeries.map(item => item[1]);
+            
+            // 創建圖表
+            charts.seriesValueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '總價值',
+                        data: data,
+                        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-color'),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw || 0;
+                                    return `總價值: $${value.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                },
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            grid: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新價格區間圖表
+        function updatePriceRangeChart() {
+            const ctx = document.getElementById('price-range-chart').getContext('2d');
+            
+            // 如果已有圖表，先銷毀
+            if (charts.priceRangeChart) {
+                charts.priceRangeChart.destroy();
+            }
+            
+            // 如果沒有卡片，顯示空圖表
+            if (pokemonCards.length === 0) {
+                charts.priceRangeChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['沒有數據'],
+                        datasets: [{
+                            data: [0],
+                            backgroundColor: ['#D1D5DB']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                                }
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            
+            // 定義價格區間
+            const priceRanges = [
+                { label: '$0-10', min: 0, max: 10 },
+                { label: '$10-25', min: 10, max: 25 },
+                { label: '$25-50', min: 25, max: 50 },
+                { label: '$50-100', min: 50, max: 100 },
+                { label: '$100-250', min: 100, max: 250 },
+                { label: '$250-500', min: 250, max: 500 },
+                { label: '$500+', min: 500, max: Infinity }
+            ];
+            
+            // 計算每個價格區間的卡片數量
+            const priceRangeCounts = priceRanges.map(range => {
+                const count = pokemonCards.filter(card => 
+                    card.price >= range.min && card.price < range.max
+                ).reduce((sum, card) => sum + card.quantity, 0);
+                return count;
+            });
+            
+            // 創建圖表
+            charts.priceRangeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: priceRanges.map(range => range.label),
+                    datasets: [{
+                        label: '卡片數量',
+                        data: priceRangeCounts,
+                        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-color'),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '卡片數量',
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            ticks: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            grid: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--border-color')
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '價格區間',
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            ticks: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新搜尋過濾器
+        function updateSearchFilters() {
+            // 更新系列過濾器
+            const seriesSelect = document.getElementById('search-series');
+            const series = [...new Set(pokemonCards.map(card => card.series).filter(Boolean))];
+            
+            // 保留當前選中的值
+            const currentValue = seriesSelect.value;
+            
+            // 清空除了第一個選項外的所有選項
+            while (seriesSelect.options.length > 1) {
+                seriesSelect.remove(1);
+            }
+            
+            // 添加系列選項
+            series.sort().forEach(seriesName => {
+                const option = document.createElement('option');
+                option.value = seriesName;
+                option.textContent = seriesName;
+                seriesSelect.appendChild(option);
+            });
+            
+            // 恢復選中值
+            if (currentValue && seriesSelect.querySelector(`option[value="${currentValue}"]`)) {
+                seriesSelect.value = currentValue;
+            }
+        }
+
+        // 搜尋卡片
+        function searchCards(e) {
+            if (e) e.preventDefault();
+            
+            const searchName = document.getElementById('search-name').value.trim().toLowerCase();
+            const searchSeries = document.getElementById('search-series').value;
+            const searchRarity = document.getElementById('search-rarity').value;
+            const minPrice = document.getElementById('min-price').value ? parseFloat(document.getElementById('min-price').value) : 0;
+            const maxPrice = document.getElementById('max-price').value ? parseFloat(document.getElementById('max-price').value) : Infinity;
+            const sortBy = document.getElementById('sort-by').value;
+            
+            // 過濾卡片
+            let filteredCards = pokemonCards.filter(card => {
+                const matchName = !searchName || card.name.toLowerCase().includes(searchName);
+                const matchSeries = !searchSeries || card.series === searchSeries;
+                const matchRarity = !searchRarity || card.rarity === searchRarity;
+                const matchPrice = card.price >= minPrice && card.price <= maxPrice;
+                
+                return matchName && matchSeries && matchRarity && matchPrice;
+            });
+            
+            // 排序卡片
+            switch(sortBy) {
+                case 'name-asc':
+                    filteredCards.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'name-desc':
+                    filteredCards.sort((a, b) => b.name.localeCompare(a.name));
+                    break;
+                case 'price-asc':
+                    filteredCards.sort((a, b) => a.price - b.price);
+                    break;
+                case 'price-desc':
+                    filteredCards.sort((a, b) => b.price - a.price);
+                    break;
+                case 'quantity-asc':
+                    filteredCards.sort((a, b) => a.quantity - b.quantity);
+                    break;
+                case 'quantity-desc':
+                    filteredCards.sort((a, b) => b.quantity - a.quantity);
+                    break;
+            }
+            
+            // 顯示搜尋結果數量
+            document.getElementById('search-count').textContent = `找到 ${filteredCards.length} 個結果`;
+            
+            // 渲染搜尋結果
+            const searchResults = document.getElementById('search-results');
+            const noResultsMessage = document.getElementById('no-results-message');
+            
+            if (filteredCards.length === 0) {
+                searchResults.innerHTML = '';
+                noResultsMessage.classList.remove('hidden');
+                return;
+            }
+            
+            noResultsMessage.classList.add('hidden');
+            searchResults.innerHTML = '';
+            
+            filteredCards.forEach((card, originalIndex) => {
+                const tr = document.createElement('tr');
+                const cardTotal = card.quantity * card.price;
+                
+                // 尋找原始索引
+                const index = pokemonCards.findIndex(c => 
+                    c.name === card.name && 
+                    c.series === card.series && 
+                    c.price === card.price
+                );
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.name}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.series || '-'}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">
+                        ${getRarityBadge(card.rarity || '普通')}
+                    </td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">${card.quantity}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${card.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">$${cardTotal.toFixed(2)}</td>
+                    <td class="py-3 px-4 border-b border-[var(--border-color)]">
+                        <button class="edit-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded mr-2 text-sm transition-colors" data-index="${index}">編輯</button>
+                        <button class="delete-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors" data-index="${index}">刪除</button>
+                    </td>
+                `;
+                
+                searchResults.appendChild(tr);
+            });
+            
+            // 添加事件監聽
+            document.querySelectorAll('#search-results .edit-btn').forEach(btn => {
+                btn.addEventListener('click', openEditModal);
+            });
+            
+            document.querySelectorAll('#search-results .delete-btn').forEach(btn => {
+                btn.addEventListener('click', openDeleteModal);
+            });
+        }
+
+        // 導出為CSV
+        function exportToCSV() {
+            if (pokemonCards.length === 0) {
+                return;
+            }
+            
+            // CSV標頭
+            let csv = 'Name,Series,Rarity,Quantity,Price,Total Value,Condition,Notes,Added Date\n';
+            
+            // 添加數據行
+            pokemonCards.forEach(card => {
+                const totalValue = card.quantity * card.price;
+                const row = [
+                    `"${card.name}"`,
+                    `"${card.series || ''}"`,
+                    `"${card.rarity || '普通'}"`,
+                    card.quantity,
+                    card.price,
+                    totalValue.toFixed(2),
+                    `"${card.condition || '全新'}"`,
+                    `"${(card.notes || '').replace(/"/g, '""')}"`,
+                    `"${card.addedDate || new Date().toISOString()}"`
+                ];
+                csv += row.join(',') + '\n';
+            });
+            
+            // 創建下載鏈接
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `pokemon_cards_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 處理CSV導入
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csv = e.target.result;
+                    const lines = csv.split('\n');
+                    const headers = lines[0].split(',');
+                    
+                    // 檢查CSV格式
+                    if (!headers.includes('Name') || !headers.includes('Quantity') || !headers.includes('Price')) {
+                        alert('CSV格式不正確，請確保包含Name、Quantity和Price列。');
+                        return;
+                    }
+                    
+                    // 解析CSV數據
+                    const importedCards = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+                        
+                        const values = lines[i].split(',');
+                        const card = {};
+                        
+                        // 映射列
+                        headers.forEach((header, index) => {
+                            let value = values[index];
+                            if (value) {
+                                // 移除引號
+                                if (value.startsWith('"') && value.endsWith('"')) {
+                                    value = value.substring(1, value.length - 1);
+                                }
+                                
+                                // 轉換數值
+                                if (header === 'Quantity' || header === 'Price') {
+                                    value = parseFloat(value);
+                                }
+                                
+                                // 設置字段
+                                switch (header) {
+                                    case 'Name': card.name = value; break;
+                                    case 'Series': card.series = value; break;
+                                    case 'Rarity': card.rarity = value; break;
+                                    case 'Quantity': card.quantity = value; break;
+                                    case 'Price': card.price = value; break;
+                                    case 'Condition': card.condition = value; break;
+                                    case 'Notes': card.notes = value; break;
+                                    case 'Added Date': card.addedDate = value; break;
+                                }
+                            }
+                        });
+                        
+                        // 驗證必要字段
+                        if (card.name && !isNaN(card.quantity) && !isNaN(card.price)) {
+                            importedCards.push(card);
+                        }
+                    }
+                    
+                    // 確認導入
+                    if (importedCards.length > 0) {
+                        if (confirm(`確定要導入 ${importedCards.length} 張卡片嗎？\n當前的 ${pokemonCards.length} 張卡片將被保留，新卡片將被添加。`)) {
+                            // 合併卡片
+                            pokemonCards = [...pokemonCards, ...importedCards];
+                            saveToLocalStorage();
+                            renderPokemonList();
+                            updateHomeStats();
+                            updateStatistics();
+                            updateSearchFilters();
+                            
+                            alert(`成功導入 ${importedCards.length} 張卡片！`);
+                            
+                            // 切換到庫存頁面
+                            switchTab('inventory');
+                        }
+                    } else {
+                        alert('沒有找到有效的卡片數據。');
+                    }
+                } catch (error) {
+                    console.error('導入錯誤:', error);
+                    alert('導入過程中發生錯誤，請檢查CSV格式並重試。');
+                }
+                
+                // 清除文件輸入，以便再次選擇相同文件
+                document.getElementById('import-file').value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // 按價格排序
+        function sortByPrice() {
+            pokemonCards.sort((a, b) => b.price - a.price);
+            saveToLocalStorage();
+            renderPokemonList();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 加載主題設置
+            loadThemeSettings();
+            
+            // 加載數據
+            loadFromLocalStorage();
+            
+            // 主題下拉菜單
+            document.getElementById('theme-dropdown-btn').addEventListener('click', () => {
+                document.getElementById('theme-dropdown').classList.toggle('hidden');
+            });
+            
+            // 點擊其他地方隱藏下拉菜單
+            document.addEventListener('click', (event) => {
+                const dropdown = document.getElementById('theme-dropdown');
+                const button = document.getElementById('theme-dropdown-btn');
+                if (!button.contains(event.target) && !dropdown.contains(event.target) && !dropdown.classList.contains('hidden')) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            
+            // 主題選項
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    const theme = e.currentTarget.dataset.theme;
+                    setTheme(theme);
+                    document.getElementById('theme-dropdown').classList.add('hidden');
+                });
+            });
+            
+            // 設置頁面主題選擇
+            document.querySelectorAll('input[name="theme"]').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        setTheme(e.target.value);
+                    }
+                });
+            });
+            
+            // 選項卡切換
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    switchTab(tabId);
+                });
+            });
+            
+            // 首頁快捷按鈕
+            document.getElementById('go-to-inventory').addEventListener('click', () => {
+                switchTab('inventory');
+            });
+            
+            document.getElementById('go-to-stats').addEventListener('click', () => {
+                switchTab('stats');
+            });
+            
+            // 快捷導航按鈕
+            document.querySelectorAll('.go-to-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    switchTab(tabId);
+                });
+            });
+            
+            // 卡片管理事件
+            document.getElementById('pokemon-form').addEventListener('submit', addPokemonCard);
+            document.getElementById('edit-form').addEventListener('submit', updateCard);
+            document.getElementById('cancel-edit').addEventListener('click', closeEditModal);
+            
+            document.getElementById('clear-all').addEventListener('click', openClearModal);
+            document.getElementById('confirm-clear').addEventListener('click', confirmClear);
+            document.getElementById('cancel-clear').addEventListener('click', closeClearModal);
+            
+            document.getElementById('confirm-delete').addEventListener('click', confirmDelete);
+            document.getElementById('cancel-delete').addEventListener('click', closeDeleteModal);
+            
+            // 搜尋頁面事件
+            document.getElementById('search-form').addEventListener('submit', searchCards);
+            document.getElementById('search-form').addEventListener('reset', () => {
+                setTimeout(() => {
+                    searchCards();
+                }, 10);
+            });
+            
+            // 統計和搜尋更新
+            updateHomeStats();
+            updateStatistics();
+            updateSearchFilters();
+            
+            // 數據導出
+            document.getElementById('export-csv').addEventListener('click', exportToCSV);
+            document.getElementById('export-data-btn').addEventListener('click', exportToCSV);
+            
+            // 數據導入
+            document.getElementById('import-file').addEventListener('change', handleImport);
+            
+            // 清空數據
+            document.getElementById('clear-all-data').addEventListener('click', () => {
+                if (confirm('確定要清空所有數據嗎？此操作無法撤銷。')) {
+                    pokemonCards = [];
+                    saveToLocalStorage();
+                    renderPokemonList();
+                    updateHomeStats();
+                    updateStatistics();
+                    updateSearchFilters();
+                    alert('所有數據已清空。');
+                }
+            });
+            
+            // 按價格排序
+            document.getElementById('sort-price-btn').addEventListener('click', sortByPrice);
+        });
+    </script>
+</body>
+</html>
